@@ -13,10 +13,10 @@ const FIELD_MAP: Array<{
 }> = [
   { names: ['browser+os', 'browser os', 'browser and os', 'browser/os'],          fieldId: 'customfield_17000', format: 'multiselect' },
   { names: ['labels', 'label'],                                                    fieldId: 'labels',             format: 'labels' },
-  { names: ['severity'],                                                           fieldId: 'customfield_15000',  format: 'multiselect' },
+  { names: ['severity'],                                                           fieldId: 'customfield_15000',  format: 'select' },
   { names: ['priority'],                                                           fieldId: 'priority',           format: 'select' },
   { names: ['sd - environment', 'sd environment', 'sd-environment', 'environment'], fieldId: 'customfield_13606', format: 'multiselect' },
-  { names: ['detected on', 'detected'],                                            fieldId: 'customfield_17475',  format: 'multiselect' },
+  { names: ['detected on', 'detected'],                                            fieldId: 'customfield_17475',  format: 'select' },
   { names: ['user role', 'userrole'],                                              fieldId: 'customfield_19302',  format: 'multiselect' },
   { names: ['ux/ui scope required', 'ux ui scope required', 'ux/ui scope'],        fieldId: 'customfield_17875',  format: 'multiselect' },
   { names: ['story points', 'storypoints', 'story point'],                        fieldId: 'customfield_10004',  format: 'number' },
