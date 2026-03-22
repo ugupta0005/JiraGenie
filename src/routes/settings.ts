@@ -16,10 +16,29 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 export function loadSettings(): Settings {
+  // Environment variables take priority — required for Vercel/production deployments
+  // where file system is read-only and settings.json cannot persist.
+  const fromEnv: Partial<Settings> = {
+    jiraUrl: process.env.JIRA_URL,
+    jiraEmail: process.env.JIRA_EMAIL,
+    jiraApiKey: process.env.JIRA_API_KEY,
+    jiraProjectKey: process.env.JIRA_PROJECT_KEY,
+    jiraIssueType: process.env.JIRA_ISSUE_TYPE,
+    groqApiKey: process.env.GROQ_API_KEY,
+  };
+
+  // If all required env vars are set, use them directly (Vercel mode)
+  if (fromEnv.jiraUrl && fromEnv.jiraApiKey && fromEnv.groqApiKey) {
+    return { ...DEFAULT_SETTINGS, ...fromEnv } as Settings;
+  }
+
+  // Otherwise fall back to settings.json (local dev mode)
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
       const raw = fs.readFileSync(SETTINGS_FILE, 'utf-8');
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      const fromFile = JSON.parse(raw) as Partial<Settings>;
+      // Merge: env vars override file values if present
+      return { ...DEFAULT_SETTINGS, ...fromFile, ...Object.fromEntries(Object.entries(fromEnv).filter(([, v]) => v)) } as Settings;
     }
   } catch (err) {
     console.warn('[Settings] Could not load settings.json, using defaults');
@@ -28,7 +47,12 @@ export function loadSettings(): Settings {
 }
 
 function saveSettings(settings: Settings): void {
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+  } catch (err) {
+    // Vercel and other read-only environments — silently skip
+    console.warn('[Settings] Cannot write settings.json (read-only filesystem). Use environment variables instead.');
+  }
 }
 
 function maskApiKey(key: string): string {
