@@ -234,6 +234,24 @@ analyzeBtn.addEventListener('click', () => __awaiter(this, void 0, void 0, funct
         setTimeout(() => { setStep(2, 'done'); setStep(3, 'active'); }, 4000);
         setTimeout(() => { setStep(3, 'done'); setStep(4, 'active'); }, 6000);
         const response = yield fetch('/api/analyze', { method: 'POST', body: formData });
+        // Handle non-JSON error responses (e.g. Vercel's "Request Entity Too Large")
+        if (!response.ok) {
+            let errorText;
+            try {
+                const errJson = yield response.json();
+                errorText = errJson.error || `Server error (${response.status})`;
+            }
+            catch (_a) {
+                errorText = yield response.text();
+                if (errorText.toLowerCase().includes('request entity too large') || response.status === 413) {
+                    errorText = 'Files are too large for Vercel (max ~4.5MB total). Try with smaller screenshots or use the app locally.';
+                }
+                else if (response.status === 504 || errorText.toLowerCase().includes('timeout')) {
+                    errorText = 'Request timed out. The AI analysis + Jira creation took too long. Try again or use the app locally.';
+                }
+            }
+            throw new Error(errorText);
+        }
         const result = yield response.json();
         [1, 2, 3, 4].forEach(i => setStep(i, 'done'));
         if (result.success && result.data) {
