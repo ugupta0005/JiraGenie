@@ -39,6 +39,13 @@ const groqStatus = document.getElementById('groqStatus') as HTMLDivElement;
 const toggleJiraKey = document.getElementById('toggleJiraKey') as HTMLButtonElement;
 const toggleGroqKey = document.getElementById('toggleGroqKey') as HTMLButtonElement;
 
+// Track whether API key fields have been modified by the user
+let jiraKeyDirty = false;
+let groqKeyDirty = false;
+
+jiraApiKeyInput.addEventListener('input', () => { jiraKeyDirty = true; });
+groqApiKeyInput.addEventListener('input', () => { groqKeyDirty = true; });
+
 // ===== Toggle password visibility =====
 function setupToggle(btn: HTMLButtonElement, input: HTMLInputElement): void {
   btn.addEventListener('click', () => {
@@ -52,7 +59,7 @@ function setupToggle(btn: HTMLButtonElement, input: HTMLInputElement): void {
 setupToggle(toggleJiraKey, jiraApiKeyInput);
 setupToggle(toggleGroqKey, groqApiKeyInput);
 
-// ===== Load Settings =====
+// ===== Load Settings (only on initial page load) =====
 async function loadSettings(): Promise<void> {
   try {
     const response = await fetch('/api/settings');
@@ -76,22 +83,30 @@ async function loadSettings(): Promise<void> {
       jiraProjectKeyInput.value = s.jiraProjectKey || '';
       jiraIssueTypeInput.value = s.jiraIssueType || 'Bug';
       groqApiKeyInput.value = s.groqApiKey || '';
+      // Reset dirty flags after load
+      jiraKeyDirty = false;
+      groqKeyDirty = false;
     }
   } catch (err) {
     showToast('Failed to load settings', 'error');
   }
 }
 
-// ===== Save Settings =====
-saveBtn.addEventListener('click', async () => {
-  const settings = {
+// Gather the current form values, preserving masked keys if untouched
+function gatherFormSettings(): Record<string, string> {
+  return {
     jiraUrl: jiraUrlInput.value.trim(),
     jiraEmail: jiraEmailInput.value.trim(),
-    jiraApiKey: jiraApiKeyInput.value,
+    jiraApiKey: jiraKeyDirty ? jiraApiKeyInput.value : jiraApiKeyInput.value, // send as-is
     jiraProjectKey: jiraProjectKeyInput.value.trim().toUpperCase(),
     jiraIssueType: jiraIssueTypeInput.value.trim() || 'Bug',
-    groqApiKey: groqApiKeyInput.value,
+    groqApiKey: groqKeyDirty ? groqApiKeyInput.value : groqApiKeyInput.value, // send as-is
   };
+}
+
+// ===== Save Settings =====
+saveBtn.addEventListener('click', async () => {
+  const settings = gatherFormSettings();
 
   if (!settings.jiraUrl && !settings.groqApiKey) {
     showToast('Please fill in at least some settings before saving', 'error');
@@ -113,8 +128,10 @@ saveBtn.addEventListener('click', async () => {
 
     if (result.success) {
       showToast(result.message || 'Settings saved!', 'success');
-      // Reload to get masked values
-      await loadSettings();
+      // Do NOT reload settings — that overwrites form with masked keys.
+      // The form already has the correct values the user typed.
+      jiraKeyDirty = false;
+      groqKeyDirty = false;
     } else {
       throw new Error(result.error);
     }
@@ -129,22 +146,14 @@ saveBtn.addEventListener('click', async () => {
 
 // ===== Test Jira Connection =====
 testJiraBtn.addEventListener('click', async () => {
-  // First save current values so the backend uses them
-  const settings = {
-    jiraUrl: jiraUrlInput.value.trim(),
-    jiraEmail: jiraEmailInput.value.trim(),
-    jiraApiKey: jiraApiKeyInput.value,
-    jiraProjectKey: jiraProjectKeyInput.value.trim(),
-    jiraIssueType: jiraIssueTypeInput.value.trim() || 'Bug',
-    groqApiKey: groqApiKeyInput.value,
-  };
+  const settings = gatherFormSettings();
 
   if (!settings.jiraUrl || !settings.jiraEmail || !settings.jiraApiKey) {
     showToast('Please fill in Jira URL, email, and API key first', 'error');
     return;
   }
 
-  // Temporarily save so test uses current form values
+  // Save current form values first so the test endpoint uses them
   await fetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -184,18 +193,12 @@ testGroqBtn.addEventListener('click', async () => {
     return;
   }
 
-  // Temporarily save so the test uses current form values
+  // Save current form values first so the test endpoint uses them
+  const settings = gatherFormSettings();
   await fetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jiraUrl: jiraUrlInput.value.trim(),
-      jiraEmail: jiraEmailInput.value.trim(),
-      jiraApiKey: jiraApiKeyInput.value,
-      jiraProjectKey: jiraProjectKeyInput.value.trim(),
-      jiraIssueType: jiraIssueTypeInput.value.trim() || 'Bug',
-      groqApiKey: groqApiKeyInput.value,
-    }),
+    body: JSON.stringify(settings),
   });
 
   const originalText = testGroqBtn.textContent!;
