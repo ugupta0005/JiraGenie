@@ -95,7 +95,11 @@ function buildJiraDescription(bugReport: BugReport): object {
   return { type: 'doc', version: 1, content: nodes };
 }
 
-export async function createJiraTicket(bugReport: BugReport, settings: Settings): Promise<JiraTicket> {
+export async function createJiraTicket(
+  bugReport: BugReport,
+  settings: Settings,
+  customFields?: Record<string, unknown>
+): Promise<JiraTicket> {
   const jiraBaseUrl = settings.jiraUrl.replace(/\/$/, '');
   const authHeader = getAuthHeader(settings);
   const commonHeaders = {
@@ -111,11 +115,10 @@ export async function createJiraTicket(bugReport: BugReport, settings: Settings)
   const issueTypes: Array<{ name: string; id: string }> = projectRes.data.issueTypes || [];
   const preferredName = (settings.jiraIssueType || 'Bug').toLowerCase();
 
-  // Find exact match (case-insensitive), then partial match, then first available
   const matched =
     issueTypes.find(t => t.name.toLowerCase() === preferredName) ||
     issueTypes.find(t => t.name.toLowerCase().includes(preferredName)) ||
-    issueTypes.find(t => !t.name.toLowerCase().includes('subtask')) || // avoid sub-tasks
+    issueTypes.find(t => !t.name.toLowerCase().includes('subtask')) ||
     issueTypes[0];
 
   if (!matched) {
@@ -124,15 +127,24 @@ export async function createJiraTicket(bugReport: BugReport, settings: Settings)
 
   console.log(`[CreateTicket] Using issue type: "${matched.name}" (requested: "${settings.jiraIssueType}")`);
 
-  // Step 2: Create the issue
-  const issuePayload = {
-    fields: {
-      project: { key: settings.jiraProjectKey },
-      summary: bugReport.title,
-      description: buildJiraDescription(bugReport),
-      issuetype: { name: matched.name },
-    },
+  // Step 2: Build the issue payload with standard + custom fields
+  const fields: Record<string, unknown> = {
+    project: { key: settings.jiraProjectKey },
+    summary: bugReport.title,
+    description: buildJiraDescription(bugReport),
+    issuetype: { name: matched.name },
   };
+
+  // Merge custom fields into the payload
+  if (customFields && Object.keys(customFields).length > 0) {
+    console.log(`[CreateTicket] Adding ${Object.keys(customFields).length} custom field(s):`);
+    for (const [fieldId, value] of Object.entries(customFields)) {
+      console.log(`  ${fieldId}: ${JSON.stringify(value)}`);
+      fields[fieldId] = value;
+    }
+  }
+
+  const issuePayload = { fields };
 
   let response;
   try {

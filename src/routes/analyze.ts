@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { analyzeScreenshot } from '../services/groqService';
 import { createJiraTicket, attachFilesToTicket } from '../services/jiraService';
+import { parseCustomFields } from '../services/customFieldParser';
 import { loadSettings } from './settings';
 import { ApiResponse, JiraTicket } from '../types/index';
 
@@ -79,13 +80,19 @@ router.post('/', upload.array('files', 10), async (req: Request, res: Response) 
     console.log(`[Analyze] Files received: ${files.map(f => `${f.originalname}(${f.mimetype})`).join(', ')}`);
     console.log(`[Analyze] Using "${imageFile.originalname}" for Groq analysis`);
 
-    // Step 1: Analyze first image with Groq LLaMA Scout
-    const bugReport = await analyzeScreenshot(imageBase64, imageMimeType, description, settings);
+    // Step 0: Parse custom Jira fields from the description
+    const { jiraFields, cleanDescription } = parseCustomFields(description);
+    if (Object.keys(jiraFields).length > 0) {
+      console.log(`[Analyze] Extracted ${Object.keys(jiraFields).length} custom field(s) from description`);
+    }
+
+    // Step 1: Analyze first image with Groq LLaMA Scout (using cleaned description without field metadata)
+    const bugReport = await analyzeScreenshot(imageBase64, imageMimeType, cleanDescription, settings);
     console.log(`[Analyze] Bug report generated: "${bugReport.title}"`);
 
-    // Step 2: Create Jira ticket
+    // Step 2: Create Jira ticket with custom fields
     console.log(`[Analyze] Creating Jira ticket in project: ${settings.jiraProjectKey}...`);
-    const jiraTicket = await createJiraTicket(bugReport, settings);
+    const jiraTicket = await createJiraTicket(bugReport, settings, jiraFields);
     console.log(`[Analyze] Jira ticket created: ${jiraTicket.issueKey}`);
 
     // Step 3: Attach ALL files to the Jira ticket
