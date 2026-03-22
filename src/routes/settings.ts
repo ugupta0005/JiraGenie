@@ -15,42 +15,52 @@ const DEFAULT_SETTINGS: Settings = {
   groqApiKey: '',
 };
 
-export function loadSettings(): Settings {
-  // Environment variables take priority — required for Vercel/production deployments
-  // where file system is read-only and settings.json cannot persist.
-  const fromEnv: Partial<Settings> = {
-    jiraUrl: process.env.JIRA_URL,
-    jiraEmail: process.env.JIRA_EMAIL,
-    jiraApiKey: process.env.JIRA_API_KEY,
-    jiraProjectKey: process.env.JIRA_PROJECT_KEY,
-    jiraIssueType: process.env.JIRA_ISSUE_TYPE,
-    groqApiKey: process.env.GROQ_API_KEY,
-  };
-
-  // If all required env vars are set, use them directly (Vercel mode)
-  if (fromEnv.jiraUrl && fromEnv.jiraApiKey && fromEnv.groqApiKey) {
-    return { ...DEFAULT_SETTINGS, ...fromEnv } as Settings;
-  }
-
-  // Otherwise fall back to settings.json (local dev mode)
+/**
+ * Read settings from settings.json only (no env vars).
+ */
+function loadFileSettings(): Settings {
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
       const raw = fs.readFileSync(SETTINGS_FILE, 'utf-8');
-      const fromFile = JSON.parse(raw) as Partial<Settings>;
-      // Merge: env vars override file values if present
-      return { ...DEFAULT_SETTINGS, ...fromFile, ...Object.fromEntries(Object.entries(fromEnv).filter(([, v]) => v)) } as Settings;
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
     }
   } catch (err) {
-    console.warn('[Settings] Could not load settings.json, using defaults');
+    console.warn('[Settings] Could not read settings.json');
   }
   return { ...DEFAULT_SETTINGS };
+}
+
+/**
+ * The settings used by the application at runtime.
+ * Priority: settings.json > env vars > defaults.
+ * This ensures user-saved settings (via the Settings page) always win.
+ */
+export function loadSettings(): Settings {
+  const fromFile = loadFileSettings();
+
+  // Only use env vars as a fallback for fields that are empty in the file
+  const merged: Settings = {
+    jiraUrl: fromFile.jiraUrl || process.env.JIRA_URL || '',
+    jiraEmail: fromFile.jiraEmail || process.env.JIRA_EMAIL || '',
+    jiraApiKey: fromFile.jiraApiKey || process.env.JIRA_API_KEY || '',
+    jiraProjectKey: fromFile.jiraProjectKey || process.env.JIRA_PROJECT_KEY || '',
+    jiraIssueType: fromFile.jiraIssueType || process.env.JIRA_ISSUE_TYPE || 'Bug',
+    groqApiKey: fromFile.groqApiKey || process.env.GROQ_API_KEY || '',
+  };
+
+  return merged;
 }
 
 function saveSettings(settings: Settings): void {
   try {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+    console.log('[Settings] Written to:', SETTINGS_FILE);
+    console.log('[Settings] Saved data:', JSON.stringify({
+      ...settings,
+      jiraApiKey: settings.jiraApiKey ? '***SET***' : '',
+      groqApiKey: settings.groqApiKey ? '***SET***' : '',
+    }));
   } catch (err) {
-    // Vercel and other read-only environments — silently skip
     console.warn('[Settings] Cannot write settings.json (read-only filesystem). Use environment variables instead.');
   }
 }
@@ -80,10 +90,16 @@ router.get('/', (_req: Request, res: Response) => {
 // POST /api/settings - saves settings
 router.post('/', (req: Request, res: Response) => {
   try {
-    const existing = loadSettings();
+    // Read existing from FILE only (not env vars) so we can properly merge API keys
+    const existing = loadFileSettings();
     const incoming = req.body as Partial<Settings>;
 
-    // Merge: if a field contains '****' it's a masked value, keep existing
+    console.log('[Settings] Save request received');
+    console.log('[Settings]   incoming jiraUrl:', incoming.jiraUrl);
+    console.log('[Settings]   incoming jiraProjectKey:', incoming.jiraProjectKey);
+    console.log('[Settings]   incoming jiraApiKey masked?', incoming.jiraApiKey?.includes('****'));
+
+    // Merge: if API key field contains '****' it's a masked value → keep existing real key
     const updated: Settings = {
       jiraUrl: incoming.jiraUrl ?? existing.jiraUrl,
       jiraEmail: incoming.jiraEmail ?? existing.jiraEmail,
@@ -94,11 +110,11 @@ router.post('/', (req: Request, res: Response) => {
     };
 
     saveSettings(updated);
-    console.log('[Settings] Settings saved successfully');
 
     const response: ApiResponse<null> = { success: true, message: 'Settings saved successfully!' };
     return res.json(response);
   } catch (error) {
+    console.error('[Settings] Save error:', error);
     const response: ApiResponse<null> = { success: false, error: 'Failed to save settings' };
     return res.status(500).json(response);
   }
