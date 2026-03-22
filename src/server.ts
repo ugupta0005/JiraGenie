@@ -26,18 +26,20 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log('');
-  console.log('╔════════════════════════════════════════╗');
-  console.log('║      🐛 Bug Report Enhancer v1.0.0     ║');
-  console.log('╠════════════════════════════════════════╣');
-  console.log(`║  Server running at:                    ║`);
-  console.log(`║  http://localhost:${PORT}                  ║`);
-  console.log('║                                        ║');
-  console.log('║  Open Chrome and navigate to the URL   ║');
-  console.log('╚════════════════════════════════════════╝');
-  console.log('');
-});
+// Start server only when running locally (Vercel handles this in serverless mode)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('╔════════════════════════════════════════╗');
+    console.log('║      🐛 Bug Report Enhancer v1.0.0     ║');
+    console.log('╠════════════════════════════════════════╣');
+    console.log(`║  Server running at:                    ║`);
+    console.log(`║  http://localhost:${PORT}                  ║`);
+    console.log('║                                        ║');
+    console.log('║  Open Chrome and navigate to the URL   ║');
+    console.log('╚════════════════════════════════════════╝');
+    console.log('');
+  });
+}
 
 export default app;
