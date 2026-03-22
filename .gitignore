@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Environment and secrets
+.env
+settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (temp)
+uploads/
+
+# AI Artifacts
+.gemini/
+
+# Logs
+*.log
+npm-debug.log*

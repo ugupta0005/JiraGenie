@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bug Report Enhancer</title>
+  <meta name="description" content="AI-powered bug report enhancer. Drop screenshots or videos, add a description, and automatically create a Jira ticket." />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐛</text></svg>" />
+</head>
+<body>
+
+<!-- Full-page drag overlay -->
+<div class="drag-overlay" id="dragOverlay">
+  <div class="drag-overlay-content">
+    <div class="icon">📸</div>
+    <h2>Drop files anywhere</h2>
+    <p>Screenshots &amp; videos welcome</p>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="page-container">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="app-title">
+      <div class="icon">🐛</div>
+      <div>
+        <h1>Bug Report Enhancer</h1>
+        <div class="subtitle">Powered by Groq LLaMA Scout · Jira Integration</div>
+      </div>
+    </div>
+    <a href="/settings.html" class="btn btn-settings" id="settingsBtn">⚙️ Settings</a>
+  </header>
+
+  <!-- Drop Zone Card -->
+  <div class="card">
+    <div class="section-label">📸 Screenshots &amp; Videos</div>
+
+    <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Drop files here or click to browse">
+
+      <!-- Empty state -->
+      <div id="emptyState">
+        <span class="drop-icon">🖼️</span>
+        <div class="drop-text">
+          <h3>Drop screenshots &amp; videos here</h3>
+          <p>or <span class="accent">click to browse</span> · Up to 10 files · PNG, JPG, WebP, GIF, MP4, MOV, WebM</p>
+        </div>
+      </div>
+
+      <!-- File grid (shown when files are selected) -->
+      <div class="file-list" id="fileList" style="display:none"></div>
+    </div>
+
+    <!-- File count badge + add more button -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; flex-wrap:wrap; gap:8px;">
+      <div class="file-count-badge" id="fileCount" style="display:none"></div>
+      <button class="btn btn-secondary btn-sm" id="addMoreBtn" style="display:none" onclick="document.getElementById('fileInput').click()">
+        ➕ Add more files
+      </button>
+    </div>
+
+    <!-- Hidden file input — multiple, images + videos -->
+    <input type="file" id="fileInput" accept="image/*,video/mp4,video/quicktime,video/webm,video/avi" multiple style="display:none" aria-hidden="true" />
+  </div>
+
+  <!-- Description Card -->
+  <div class="card">
+    <div class="section-label">📝 Additional Information</div>
+    <div class="form-group">
+      <label class="form-label" for="descriptionInput">
+        <span class="label-icon">✏️</span>
+        Describe what went wrong
+      </label>
+      <textarea
+        id="descriptionInput"
+        placeholder="e.g. The login button stops responding after the first click on mobile Chrome. Happens consistently when the keyboard is open..."
+        rows="4"
+      ></textarea>
+    </div>
+  </div>
+
+  <!-- Submit Card -->
+  <div class="card">
+    <button class="btn btn-primary btn-full" id="analyzeBtn" disabled>
+      🚀 Analyze and Push to Jira
+    </button>
+
+    <!-- Progress steps -->
+    <div class="progress-steps" id="progressSteps">
+      <div class="step" id="step1">
+        <span class="step-icon">⏳</span>
+        <span>Sending screenshot to Groq LLaMA Scout...</span>
+      </div>
+      <div class="step" id="step2">
+        <span class="step-icon">⏳</span>
+        <span>Generating AI-powered bug report...</span>
+      </div>
+      <div class="step" id="step3">
+        <span class="step-icon">⏳</span>
+        <span>Creating Jira ticket...</span>
+      </div>
+      <div class="step" id="step4">
+        <span class="step-icon">⏳</span>
+        <span>Attaching files to Jira ticket...</span>
+      </div>
+    </div>
+
+    <!-- Result card -->
+    <div class="result-card" id="resultCard">
+      <div class="result-header">
+        <span class="result-badge" id="resultBadge">🎫 TICKET CREATED</span>
+        <span class="result-title" id="resultTitle"></span>
+      </div>
+      <div id="resultBody"></div>
+      <details class="result-details" id="resultDetails" style="display:none">
+        <summary>View AI bug report preview</summary>
+        <div class="bug-report-preview" id="bugReportPreview"></div>
+      </details>
+    </div>
+  </div>
+
+</div>
+
+<script src="/js/main.js"></script>
+</body>
+</html>
